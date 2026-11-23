@@ -1,13 +1,14 @@
 # Contributing to Tracewick Laravel
 
-Use PHP 8.2–8.5 and Composer 2. Run the checks before committing.
+Use PHP 8.2–8.5 with `pdo_sqlite` and Composer 2. Run the checks before committing.
 
 ~~~bash
 composer install
 composer ci
 ~~~
 
-The test suite runs without Excimer. Laravel lifecycle tests use a test sampler and sink.
+The test suite runs without Excimer. Laravel lifecycle tests use a test sampler and sink,
+and the queue tests run Laravel's database driver against an in-memory SQLite database.
 Native Excimer tests belong in [Tracewick core](https://github.com/tracewick/tracewick).
 
 Open PRs from feature branches to develop with Conventional Commit titles. Keep release

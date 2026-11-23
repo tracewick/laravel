@@ -54,8 +54,22 @@ requests. Each profile uses the registered command name. Nested commands run wit
 outer profile. Commands launched from a web request stay within the HTTP profile.
 
 Tracewick commands, queue workers and listeners, Horizon, Octane, and other built-in
-long-running commands such as `serve` and `schedule:work` are excluded. Job profiling
-will be added separately.
+long-running commands such as `serve` and `schedule:work` are excluded.
+
+## Queue and Horizon
+
+Set `TRACEWICK_PROFILE_QUEUE=true` in the worker process environment. Rebuild any
+configuration cache and restart the workers so they pick up the change.
+
+The bridge uses the same profiling setup for `queue:work` and Horizon workers. Each
+completed attempt can produce one profile, including releases and failures that the
+worker handles. The job label uses the loaded job class or `unknown`. Synchronous jobs
+stay within the current request, command, or asynchronous job profile.
+
+The worker flushes when Laravel emits `JobAttempted`. A graceful stop lets the in-flight
+attempt reach that event. A hard timeout or forced kill can end the process before
+that event, so the in-flight profile can be lost. Profiles already written to the spool
+remain available to the reader.
 
 During development, applications testing against the core release candidate must explicitly
 require `tracewick/tracewick:1.0.0-rc.1` while keeping their normal Composer stability setting.
