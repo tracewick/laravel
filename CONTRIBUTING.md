@@ -7,8 +7,8 @@ composer install
 composer ci
 ~~~
 
-The bootstrap smoke test runs without Excimer. Before submitting a change to sampling,
-also verify that path with real Excimer.
+The test suite runs without Excimer. Laravel lifecycle tests use a test sampler and sink.
+Native Excimer tests belong in [Tracewick core](https://github.com/tracewick/tracewick).
 
 Open PRs from feature branches to develop with Conventional Commit titles. Keep release
 changes on the release branch and let release-please generate the changelog.

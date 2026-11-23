@@ -27,15 +27,8 @@ jobs:
           tools: composer:v2
       - run: composer install --prefer-dist --no-interaction --no-progress
       - run: composer ci
-      - name: Collect coverage when source contains executable statements
-        id: coverage
-        run: |
-          vendor/bin/phpunit --coverage-clover build/coverage/clover.xml
-          if grep -Eq 'statements="[1-9][0-9]*"' build/coverage/clover.xml; then
-            echo "upload=true" >> "$GITHUB_OUTPUT"
-          fi
+      - run: vendor/bin/phpunit --coverage-clover build/coverage/clover.xml
       - uses: codecov/codecov-action@v7
-        if: steps.coverage.outputs.upload == 'true'
         with:
           files: build/coverage/clover.xml
           use_oidc: true

@@ -1,0 +1,31 @@
+<?php
+
+declare(strict_types=1);
+
+// Publish with php artisan vendor:publish --tag=tracewick-config.
+// If configuration is cached, run php artisan config:cache after changing these settings.
+return [
+    // Set TRACEWICK_LARAVEL_ENABLED=false to disable the Laravel integration.
+    // The core also honors TRACEWICK_ENABLED=0 and an existing TRACEWICK_DISABLE_FILE.
+    // Set core kill switches in the PHP worker's environment when using cached configuration.
+    'enabled' => env('TRACEWICK_LARAVEL_ENABLED', true),
+
+    // Set to false when you prepend ProfileRequest to the global middleware stack yourself.
+    'register_middleware' => true,
+
+    // Service name attached to every profile. Start with a letter or digit and use only
+    // ASCII letters, digits, dots, underscores, or dashes. The maximum is 256 characters.
+    'application_name' => env('TRACEWICK_APPLICATION', 'laravel'),
+
+    // Local directory writable by PHP and accessible to one spool reader.
+    // Set the same TRACEWICK_SPOOL_DIR for tracewick-drain or the Go agent in its own environment.
+    'spool_directory' => env('TRACEWICK_SPOOL_DIR', '/var/spool/tracewick'),
+
+    // Fraction of requests to profile, from 0 (none) to 1 (all). The default is 10%.
+    'sample_rate' => env('TRACEWICK_SAMPLE_RATE', 0.1),
+
+    // Static string-to-string labels such as ['env' => 'production'].
+    // The bridge sets route and method per request. Keep custom values stable and
+    // exclude request data, account IDs, and secrets.
+    'base_labels' => [],
+];
