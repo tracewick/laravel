@@ -11,6 +11,8 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Http\Kernel as LaravelKernel;
+use Illuminate\Queue\Events\JobAttempted;
+use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\ServiceProvider;
 
 final class TracewickServiceProvider extends ServiceProvider
@@ -33,6 +35,11 @@ final class TracewickServiceProvider extends ServiceProvider
                 $this->app->singleton(ProfileCommand::class);
                 $events->listen(CommandStarting::class, [ProfileCommand::class, 'starting']);
                 $events->listen(CommandFinished::class, [ProfileCommand::class, 'finished']);
+            }
+            if ($config->get('tracewick.profile_queue') === true) {
+                $this->app->singleton(ProfileJob::class);
+                $events->listen(JobProcessing::class, [ProfileJob::class, 'starting']);
+                $events->listen(JobAttempted::class, [ProfileJob::class, 'finished']);
             }
         }
 
