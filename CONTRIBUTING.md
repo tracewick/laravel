@@ -5,10 +5,11 @@ Use PHP 8.2–8.5 and Composer 2. Run the checks before committing.
 ~~~bash
 composer install
 composer ci
+composer test:excimer
 ~~~
 
-The bootstrap smoke test runs without Excimer. Before submitting a change to sampling,
-also verify that path with real Excimer.
+The main test suite runs without Excimer. The separate native suite requires Excimer and
+verifies that the HTTP integration writes a profile into the local spool.
 
 Open PRs from feature branches to develop with Conventional Commit titles. Keep release
 changes on the release branch and let release-please generate the changelog.

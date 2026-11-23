@@ -10,4 +10,4 @@ return (new PhpCsFixer\Config())
         'no_unused_imports' => true,
         'ordered_imports' => true,
     ])
-    ->setFinder((new PhpCsFixer\Finder())->in([__DIR__ . '/src', __DIR__ . '/tests']));
+    ->setFinder((new PhpCsFixer\Finder())->in([__DIR__ . '/config', __DIR__ . '/src', __DIR__ . '/tests']));

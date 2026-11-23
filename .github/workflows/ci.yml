@@ -27,15 +27,8 @@ jobs:
           tools: composer:v2
       - run: composer install --prefer-dist --no-interaction --no-progress
       - run: composer ci
-      - name: Collect coverage when source contains executable statements
-        id: coverage
-        run: |
-          vendor/bin/phpunit --coverage-clover build/coverage/clover.xml
-          if grep -Eq 'statements="[1-9][0-9]*"' build/coverage/clover.xml; then
-            echo "upload=true" >> "$GITHUB_OUTPUT"
-          fi
+      - run: vendor/bin/phpunit --exclude-group excimer --coverage-clover build/coverage/clover.xml
       - uses: codecov/codecov-action@v7
-        if: steps.coverage.outputs.upload == 'true'
         with:
           files: build/coverage/clover.xml
           use_oidc: true
@@ -63,3 +56,18 @@ jobs:
           tools: composer:v2
       - run: composer require --no-interaction --no-progress --prefer-dist "laravel/framework:^${{ matrix.laravel }}.0"
       - run: composer test
+
+  excimer:
+    name: Native Excimer integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: excimer-1.2.7
+          coverage: none
+          tools: composer:v2
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - run: composer test:excimer
