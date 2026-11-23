@@ -15,6 +15,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Response;
 use Tracewick\Bridge\Laravel\HttpProfiler;
+use Tracewick\Bridge\Laravel\ProfileCommand;
 use Tracewick\Bridge\Laravel\ProfileRequest;
 use Tracewick\Bridge\Laravel\TracewickServiceProvider;
 
@@ -152,6 +153,13 @@ final class HttpIntegrationTest extends TestCase
         $next = Request::create('/second');
         self::assertTrue($profiler->begin($next));
         $profiler->finish($next);
+    }
+
+    public function testArtisanProfilingIsOptIn(): void
+    {
+        self::assertInstanceOf(Application::class, $this->app);
+        self::assertSame(false, $this->app->make(Repository::class)->get('tracewick.profile_console'));
+        self::assertFalse($this->app->bound(ProfileCommand::class));
     }
 
     public function testStatsReportsCountersInTheCurrentProcess(): void

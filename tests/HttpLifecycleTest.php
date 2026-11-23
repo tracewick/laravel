@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Tracewick\Bridge\Laravel\HttpProfiler;
 use Tracewick\Bridge\Laravel\ProfileRequest;
 use Tracewick\Bridge\Laravel\TracewickServiceProvider;
+use Tracewick\Bridge\Laravel\WorkProfiler;
 use Tracewick\Profile\Profile;
 use Tracewick\Runtime\ProfilerConfig;
 use Tracewick\Runtime\UnitOfWorkProfiler;
@@ -174,7 +175,7 @@ final class HttpLifecycleTest extends TestCase
         ));
 
         self::assertInstanceOf(Application::class, $this->app);
-        $this->app->instance(HttpProfiler::class, new HttpProfiler(
+        $this->app->instance(WorkProfiler::class, new WorkProfiler(
             new UnitOfWorkProfiler($sampler, $sink, new ProfilerConfig(sampleRate: 1.0)),
         ));
     }

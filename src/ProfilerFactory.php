@@ -17,7 +17,7 @@ use Tracewick\Transport\SpoolConfig;
 
 final class ProfilerFactory
 {
-    public function __invoke(Application $app): HttpProfiler
+    public function __invoke(Application $app): WorkProfiler
     {
         $logger = null;
 
@@ -25,7 +25,7 @@ final class ProfilerFactory
             $config = $app->make(Repository::class);
 
             if ($config->get('tracewick.enabled') !== true || (bool) Env::get('LARAVEL_OCTANE', false)) {
-                return new HttpProfiler(null);
+                return new WorkProfiler(null);
             }
 
             $logger = $app->make(LoggerInterface::class);
@@ -54,7 +54,7 @@ final class ProfilerFactory
             );
             $profiler->registerShutdown();
 
-            return new HttpProfiler($profiler);
+            return new WorkProfiler($profiler);
         } catch (\Throwable) {
             try {
                 $logger?->warning('Tracewick could not initialize profiling. Check the package configuration.');
@@ -62,7 +62,7 @@ final class ProfilerFactory
                 // A broken logger must not prevent the application from serving the request.
             }
 
-            return new HttpProfiler(null);
+            return new WorkProfiler(null);
         }
     }
 }

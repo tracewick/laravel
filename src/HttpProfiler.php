@@ -7,18 +7,15 @@ namespace Tracewick\Bridge\Laravel;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Tracewick\Runtime\Diagnostics;
-use Tracewick\Runtime\UnitOfWorkProfiler;
 
 /** Tracks the request that owns the active unit of work. */
-final class HttpProfiler
+final readonly class HttpProfiler
 {
-    private ?Request $activeRequest = null;
-
-    public function __construct(private readonly ?UnitOfWorkProfiler $profiler) {}
+    public function __construct(private WorkProfiler $profiler) {}
 
     public function begin(Request $request): bool
     {
-        if ($this->profiler === null || $this->activeRequest !== null) {
+        if (!$this->profiler->canBegin()) {
             return false;
         }
 
@@ -32,34 +29,29 @@ final class HttpProfiler
             default => 'OTHER',
         };
 
-        $this->profiler->start(['route' => 'unmatched', 'method' => $method]);
-        $this->activeRequest = $request;
-
-        return true;
+        return $this->profiler->begin($request, ['route' => 'unmatched', 'method' => $method]);
     }
 
     public function finish(Request $request): void
     {
-        if ($this->profiler === null || $this->activeRequest !== $request) {
+        if (!$this->profiler->owns($request)) {
             return;
         }
 
         try {
             $route = $request->route();
             if ($route instanceof Route) {
-                $this->profiler->label('route', $route->getName() ?? 'unnamed');
+                $this->profiler->label($request, 'route', $route->getName() ?? 'unnamed');
             }
         } catch (\Throwable) {
             // A custom route resolver can fail. Keep the initial route label.
         } finally {
-            $this->profiler->stop();
-            $this->profiler->flush();
-            $this->activeRequest = null;
+            $this->profiler->finish($request);
         }
     }
 
     public function diagnostics(): ?Diagnostics
     {
-        return $this->profiler?->diagnostics();
+        return $this->profiler->diagnostics();
     }
 }
