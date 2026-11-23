@@ -46,7 +46,6 @@
         "cs:fix": "php-cs-fixer fix",
         "rector:check": "rector process --dry-run",
         "stan": "phpstan analyse --memory-limit=1G",
-        "test": "phpunit --exclude-group excimer",
-        "test:excimer": "phpunit --group excimer"
+        "test": "phpunit"
     }
 }

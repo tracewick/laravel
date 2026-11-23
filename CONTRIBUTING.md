@@ -5,11 +5,10 @@ Use PHP 8.2–8.5 and Composer 2. Run the checks before committing.
 ~~~bash
 composer install
 composer ci
-composer test:excimer
 ~~~
 
-The main test suite runs without Excimer. The separate native suite requires Excimer and
-verifies that the HTTP integration writes a profile into the local spool.
+The test suite runs without Excimer. Laravel lifecycle tests use a test sampler and sink.
+Native Excimer tests belong in [Tracewick core](https://github.com/tracewick/tracewick).
 
 Open PRs from feature branches to develop with Conventional Commit titles. Keep release
 changes on the release branch and let release-please generate the changelog.
