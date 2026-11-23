@@ -44,8 +44,18 @@ separately from the Laravel application.
 For application diagnostics run `php artisan tracewick:stats`. It shows the counters of
 that invocation and cannot read counters from PHP-FPM workers. The
 [core kill switches](https://github.com/tracewick/tracewick/blob/main/docs/runtime.md)
-also apply. Octane workers leave the HTTP profiler inactive. Command and queue profiling
-are planned for later milestones.
+also apply. Octane workers leave the HTTP profiler inactive.
+
+## Artisan
+
+Set `TRACEWICK_PROFILE_CONSOLE=true` and rebuild the configuration cache if you use one.
+Eligible Artisan invocations share the same sample rate, spool, and base labels as HTTP
+requests. Each profile uses the registered command name. Nested commands run within the
+outer profile. Commands launched from a web request stay within the HTTP profile.
+
+Tracewick commands, queue workers and listeners, Horizon, Octane, and other built-in
+long-running commands such as `serve` and `schedule:work` are excluded. Job profiling
+will be added separately.
 
 During development, applications testing against the core release candidate must explicitly
 require `tracewick/tracewick:1.0.0-rc.1` while keeping their normal Composer stability setting.

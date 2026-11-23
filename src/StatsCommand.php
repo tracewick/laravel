@@ -12,7 +12,7 @@ final class StatsCommand extends Command
 
     protected $description = 'Show Tracewick counters for this PHP process';
 
-    public function handle(HttpProfiler $profiler): int
+    public function handle(WorkProfiler $profiler): int
     {
         $this->line('Tracewick diagnostics for this PHP process');
         $diagnostics = $profiler->diagnostics();
