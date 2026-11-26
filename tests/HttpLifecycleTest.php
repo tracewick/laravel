@@ -102,6 +102,45 @@ final class HttpLifecycleTest extends TestCase
         self::assertEquals(['route' => 'unmatched', 'method' => 'OTHER'], $profile->labels->toArray());
     }
 
+    public function testSupportedMethodsKeepTheirLabelsAndAnUnknownMethodIsBounded(): void
+    {
+        $profiles = $this->recordProfiles();
+        self::assertInstanceOf(Application::class, $this->app);
+        $middleware = $this->app->make(ProfileRequest::class);
+        $methods = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'CONNECT', 'TRACE', 'PROPFIND'];
+
+        foreach ($methods as $method) {
+            $request = Request::create('/items/42', $method);
+            $middleware->handle($request, static fn(): Response => new Response());
+            $middleware->terminate($request);
+        }
+
+        self::assertCount(count($methods), $profiles);
+        foreach ($profiles as $index => $profile) {
+            $method = $methods[$index];
+            self::assertSame($method === 'PROPFIND' ? 'OTHER' : $method, $profile->labels->get('method'));
+        }
+    }
+
+    public function testFailingRouteResolverStillFinishesTheRequest(): void
+    {
+        $profiles = $this->recordProfiles();
+        self::assertInstanceOf(Application::class, $this->app);
+        $middleware = $this->app->make(ProfileRequest::class);
+        $request = Request::create('/items/42');
+        $request->setRouteResolver(static function (): never {
+            throw new \RuntimeException('Route metadata is unavailable.');
+        });
+
+        $middleware->handle($request, static fn(): Response => new Response());
+        $middleware->terminate($request);
+
+        self::assertCount(1, $profiles);
+        $profile = $profiles[0];
+        self::assertInstanceOf(Profile::class, $profile);
+        self::assertSame('unmatched', $profile->labels->get('route'));
+    }
+
     public function testNestedMiddlewareCannotFinishTheOuterProfile(): void
     {
         $profiles = $this->recordProfiles();
