@@ -4,9 +4,19 @@ Laravel bridge for [Tracewick](https://github.com/tracewick/tracewick). It profi
 HTTP requests by default and writes sampled profiles to a local spool. Artisan
 commands, queue attempts, and Octane profiling are opt-in.
 
-The package is in development. The initial compatibility targets are Laravel 12 on PHP
-8.2–8.5 and Laravel 13 on PHP 8.3–8.5. Collecting samples requires
-[ext-excimer](https://www.mediawiki.org/wiki/Excimer). Requests continue to work without the extension.
+The 1.0 release candidate supports Laravel 12 on PHP 8.2–8.5 and Laravel 13
+on PHP 8.3–8.5. Collecting samples requires
+[ext-excimer](https://www.mediawiki.org/wiki/Excimer). Requests continue to work
+without the extension.
+
+## Installation
+
+Install the bridge and core release candidates explicitly. Composer can keep
+its application-wide `minimum-stability` set to `stable`.
+
+~~~bash
+composer require tracewick/laravel:1.0.0-rc.1 tracewick/tracewick:1.0.0-rc.1
+~~~
 
 ## Configuration
 
@@ -91,9 +101,6 @@ waits until a request completes or the worker exits gracefully. Graceful worker
 exit flushes all remaining samples. Task workers are excluded. Octane's
 Swoole stop command forcibly kills the processes, so it can lose samples still
 held by a worker. The Laravel and core kill switches also apply to Octane.
-
-During development, applications testing against the core release candidate must explicitly
-require `tracewick/tracewick:1.0.0-rc.1` while keeping their normal Composer stability setting.
 
 ## Development
 
