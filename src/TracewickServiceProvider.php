@@ -13,7 +13,11 @@ use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Http\Kernel as LaravelKernel;
 use Illuminate\Queue\Events\JobAttempted;
 use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Support\Env;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Octane\Events\OperationReleased;
+use Tracewick\Bridge\Laravel\Octane\RoadRunnerSubscriber;
+use Tracewick\Bridge\Laravel\Octane\SwooleWorkerSubscriber;
 
 final class TracewickServiceProvider extends ServiceProvider
 {
@@ -26,6 +30,12 @@ final class TracewickServiceProvider extends ServiceProvider
 
     public function boot(Repository $config, Dispatcher $events): void
     {
+        if ((bool) Env::get('LARAVEL_OCTANE', false)) {
+            $this->listenForOctane($config, $events);
+
+            return;
+        }
+
         if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__ . '/../config/tracewick.php' => $this->app->configPath('tracewick.php'),
@@ -51,5 +61,23 @@ final class TracewickServiceProvider extends ServiceProvider
                 $kernel->prependMiddleware(ProfileRequest::class);
             }
         });
+    }
+
+    private function listenForOctane(Repository $config, Dispatcher $events): void
+    {
+        if ($config->get('tracewick.enabled') !== true || !class_exists(OperationReleased::class)) {
+            return;
+        }
+
+        $factory = new ProfilerFactory();
+        $subscriber = match ($config->get('tracewick.octane_mode')) {
+            'roadrunner' => new RoadRunnerSubscriber($factory->forHttpWorker(...)),
+            'swoole' => new SwooleWorkerSubscriber($factory->forContinuousWorker(...)),
+            default => null,
+        };
+
+        if ($subscriber !== null) {
+            $events->subscribe($subscriber);
+        }
     }
 }

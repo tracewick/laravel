@@ -63,13 +63,21 @@ final class HttpIntegrationTest extends TestCase
         }
     }
 
-    public function testInvalidConfigurationIsFailOpen(): void
+    #[DataProvider('invalidSettings')]
+    public function testInvalidConfigurationIsFailOpen(string $setting, ?string $value): void
     {
         self::assertInstanceOf(Application::class, $this->app);
-        $this->app->make(Repository::class)->set('tracewick.sample_rate', 'bogus');
+        $this->app->make(Repository::class)->set($setting, $value);
 
         $this->get('/named/42')->assertOk()->assertSee('ok');
         self::assertNull($this->app->make(HttpProfiler::class)->diagnostics());
+    }
+
+    /** @return iterable<string, array{string, ?string}> */
+    public static function invalidSettings(): iterable
+    {
+        yield 'sample rate' => ['tracewick.sample_rate', 'bogus'];
+        yield 'application name' => ['tracewick.application_name', null];
     }
 
     /** @param array<array-key, mixed> $labels */

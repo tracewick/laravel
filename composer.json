@@ -11,13 +11,15 @@
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.89",
+        "laravel/octane": "^2.24",
         "orchestra/testbench": "^10.0 || ^11.0",
         "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^11.5",
         "rector/rector": "^2.2"
     },
     "suggest": {
-        "ext-excimer": "Required to collect samples"
+        "ext-excimer": "Required to collect samples",
+        "laravel/octane": "Install ^2.24 for optional RoadRunner, Swoole, or OpenSwoole profiling"
     },
     "autoload": {
         "psr-4": {

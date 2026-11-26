@@ -50,6 +50,14 @@ final readonly class HttpProfiler
         }
     }
 
+    public function finishActiveRequest(): void
+    {
+        $request = $this->profiler->owner();
+        if ($request instanceof Request) {
+            $this->finish($request);
+        }
+    }
+
     public function diagnostics(): ?Diagnostics
     {
         return $this->profiler->diagnostics();

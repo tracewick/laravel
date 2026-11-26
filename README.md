@@ -1,7 +1,8 @@
 # Tracewick Laravel
 
 Laravel bridge for [Tracewick](https://github.com/tracewick/tracewick). It profiles
-PHP-FPM HTTP requests and writes sampled profiles to a local spool.
+HTTP requests by default and writes sampled profiles to a local spool. Artisan
+commands, queue attempts, and Octane profiling are opt-in.
 
 The package is in development. The initial compatibility targets are Laravel 12 on PHP
 8.2–8.5 and Laravel 13 on PHP 8.3–8.5. Collecting samples requires
@@ -44,7 +45,7 @@ separately from the Laravel application.
 For application diagnostics run `php artisan tracewick:stats`. It shows the counters of
 that invocation and cannot read counters from PHP-FPM workers. The
 [core kill switches](https://github.com/tracewick/tracewick/blob/main/docs/runtime.md)
-also apply. Octane workers leave the HTTP profiler inactive.
+also apply.
 
 ## Artisan
 
@@ -70,6 +71,26 @@ The worker flushes when Laravel emits `JobAttempted`. A graceful stop lets the i
 attempt reach that event. A hard timeout or forced kill can end the process before
 that event, so the in-flight profile can be lost. Profiles already written to the spool
 remain available to the reader.
+
+## Octane
+
+Install Laravel Octane 2.24 or later in your application and set
+`TRACEWICK_OCTANE_MODE` to match the server. The default is `off`. Rebuild any
+configuration cache and restart the workers after changing the mode.
+
+| Mode | Scope | Labels and sampling |
+| --- | --- | --- |
+| `roadrunner` | One profile per sampled HTTP request | Uses the HTTP method, Laravel route name, and `TRACEWICK_SAMPLE_RATE`. |
+| `swoole` | Continuous profile per Swoole or OpenSwoole HTTP worker | Uses static `base_labels`. All work in the HTTP worker can contribute, including concurrent requests and activity between requests. |
+
+Octane owns the profiling lifecycle in both modes. RoadRunner reuses its sampler
+across requests and finalizes an active profile when Octane releases a request
+after an error. Swoole and OpenSwoole capture segments when Octane releases
+completed requests, at most once per second. During idle periods, delivery
+waits until a request completes or the worker exits gracefully. Graceful worker
+exit flushes all remaining samples. Task workers are excluded. Octane's
+Swoole stop command forcibly kills the processes, so it can lose samples still
+held by a worker. The Laravel and core kill switches also apply to Octane.
 
 During development, applications testing against the core release candidate must explicitly
 require `tracewick/tracewick:1.0.0-rc.1` while keeping their normal Composer stability setting.
