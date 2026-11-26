@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Tracewick\Bridge\Laravel\Tests;
 
+use Illuminate\Events\Dispatcher;
 use Illuminate\Foundation\Application;
+use Laravel\Octane\Events\OperationReleased;
 use Laravel\Octane\Events\WorkerStarting;
+use Laravel\Octane\Events\WorkerStopping;
 use PHPUnit\Framework\TestCase;
-use Tracewick\Bridge\Laravel\Octane\SwooleProfiler;
+use Tracewick\Bridge\Laravel\Octane\SwooleWorkerSubscriber;
 use Tracewick\Clock\Clock;
 use Tracewick\Profile\Labels;
 use Tracewick\Profile\Profile;
@@ -21,12 +24,15 @@ use Tracewick\Sampler\Sampler;
 use Tracewick\Sink\Sink;
 use Tracewick\Transport\Delivery;
 
-final class SwooleProfilerTest extends TestCase
+final class SwooleWorkerSubscriberTest extends TestCase
 {
     public function testOperationReleaseDeliversClosedWindowsAndStopDrainsTheLastWindow(): void
     {
         $app = new Application();
+        $events = new Dispatcher($app);
         $starting = new WorkerStarting($app);
+        $released = new OperationReleased($app);
+        $stopping = new WorkerStopping($app);
         $calls = [];
         $labels = [];
         $now = 2_000_000_000;
@@ -60,34 +66,34 @@ final class SwooleProfilerTest extends TestCase
                 $calls[] = 'registered shutdown';
             },
         );
-        $listener = new SwooleProfiler(
+        $events->subscribe(new SwooleWorkerSubscriber(
             static function () use (&$calls, $profiler): ContinuousProfiler {
                 $calls[] = 'create';
 
                 return $profiler;
             },
             $clock,
-        );
+        ));
 
-        $listener->starting($starting);
+        $events->dispatch($starting);
         $app->instance(\Swoole\Http\Server::class, (object) ['taskworker' => true]);
-        $listener->starting($starting);
-        $listener->release();
+        $events->dispatch($starting);
+        $events->dispatch($released);
         self::assertSame([], $calls);
         $app->instance(\Swoole\Http\Server::class, (object) ['taskworker' => false]);
-        $listener->starting($starting);
-        $listener->starting($starting);
+        $events->dispatch($starting);
+        $events->dispatch($starting);
         self::assertSame(['create', 'registered shutdown'], $calls);
 
-        $listener->release();
-        $listener->release();
+        $events->dispatch($released);
+        $events->dispatch($released);
         self::assertSame([], $labels);
         $now = 18_000_000_000;
-        $listener->release();
+        $events->dispatch($released);
         self::assertSame([['environment' => 'testing']], $labels);
-        $listener->stopping();
-        $listener->stopping();
-        $listener->release();
+        $events->dispatch($stopping);
+        $events->dispatch($stopping);
+        $events->dispatch($released);
         self::assertSame([['environment' => 'testing'], ['environment' => 'testing']], $labels);
         self::assertSame(['create', 'registered shutdown', 'stop'], $calls);
         self::assertFalse($profiler->isRunning());
@@ -99,7 +105,7 @@ final class SwooleProfilerTest extends TestCase
         $app->instance(\Swoole\Http\Server::class, (object) ['taskworker' => false]);
         $clock = $this->createMock(Clock::class);
         $clock->expects(self::never())->method('nowNs');
-        $listener = new SwooleProfiler(static fn(): ?ContinuousProfiler => null, $clock);
+        $listener = new SwooleWorkerSubscriber(static fn(): ?ContinuousProfiler => null, $clock);
         $listener->starting(new WorkerStarting($app));
         $listener->release();
         $listener->stopping();

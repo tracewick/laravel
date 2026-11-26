@@ -29,7 +29,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Response;
 use Tracewick\Bridge\Laravel\HttpProfiler;
-use Tracewick\Bridge\Laravel\Octane\RoadRunnerProfiler;
+use Tracewick\Bridge\Laravel\Octane\RoadRunnerSubscriber;
 use Tracewick\Bridge\Laravel\ProfileRequest;
 use Tracewick\Bridge\Laravel\TracewickServiceProvider;
 use Tracewick\Bridge\Laravel\WorkProfiler;
@@ -130,7 +130,7 @@ final class OctaneIntegrationTest extends TestCase
             return Delivery::delivered();
         });
         $creations = 0;
-        $listener = new RoadRunnerProfiler(static function (ApplicationContract $app) use (&$creations, $sampler, $sink): HttpProfiler {
+        $subscriber = new RoadRunnerSubscriber(static function (ApplicationContract $app) use (&$creations, $sampler, $sink): HttpProfiler {
             ++$creations;
 
             return new HttpProfiler(new WorkProfiler(new UnitOfWorkProfiler($sampler, $sink, new ProfilerConfig(sampleRate: 1.0))));
@@ -138,17 +138,13 @@ final class OctaneIntegrationTest extends TestCase
 
         $app = $this->app;
         $events = $app->make(Dispatcher::class);
-        $events->listen(WorkerStarting::class, $listener->starting(...));
-        $events->listen(RequestReceived::class, $listener->received(...));
-        $events->listen(RequestTerminated::class, $listener->terminated(...));
-        $events->listen(OperationReleased::class, $listener->release(...));
-        $events->listen(WorkerStopping::class, $listener->stopping(...));
-        $events->listen(RequestReceived::class, static function (RequestReceived $event) use ($app, $listener): void {
+        $events->subscribe($subscriber);
+        $events->listen(RequestReceived::class, static function (RequestReceived $event) use ($app, $subscriber): void {
             self::assertSame($app, $event->app);
             self::assertNotSame($app, $event->sandbox);
             $other = Request::create('/foreign', 'PATCH');
-            $listener->received(new RequestReceived($app, $event->sandbox, $other));
-            $listener->terminated(new RequestTerminated($app, $event->sandbox, $other, new Response()));
+            $subscriber->received(new RequestReceived($app, $event->sandbox, $other));
+            $subscriber->terminated(new RequestTerminated($app, $event->sandbox, $other, new Response()));
         });
         $errors = [];
         $events->forget(WorkerErrorOccurred::class);

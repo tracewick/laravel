@@ -4,21 +4,31 @@ declare(strict_types=1);
 
 namespace Tracewick\Bridge\Laravel\Octane;
 
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Laravel\Octane\Events\OperationReleased;
 use Laravel\Octane\Events\WorkerStarting;
+use Laravel\Octane\Events\WorkerStopping;
 use Swoole\Http\Server;
 use Tracewick\Clock\Clock;
 use Tracewick\Clock\SystemClock;
 use Tracewick\Runtime\ContinuousProfiler;
 
-/** Sampling and delivery belong to the HTTP worker process. */
-final class SwooleProfiler
+/** Attaches continuous profiling to a Swoole or OpenSwoole HTTP worker. */
+final class SwooleWorkerSubscriber
 {
     private ?ContinuousProfiler $profiler = null;
     private ?int $lastPulseSecond = null;
 
     /** @param \Closure(Application): ?ContinuousProfiler $create */
     public function __construct(private readonly \Closure $create, private readonly Clock $clock = new SystemClock()) {}
+
+    public function subscribe(Dispatcher $events): void
+    {
+        $events->listen(WorkerStarting::class, $this->starting(...));
+        $events->listen(OperationReleased::class, $this->release(...));
+        $events->listen(WorkerStopping::class, $this->stopping(...));
+    }
 
     public function starting(WorkerStarting $event): void
     {

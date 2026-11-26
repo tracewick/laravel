@@ -24,12 +24,12 @@ final class ProfilerFactory
         return new WorkProfiler($this->build($app, $this->sequential(...), standalone: true));
     }
 
-    public function forRoadRunner(Application $app): HttpProfiler
+    public function forHttpWorker(Application $app): HttpProfiler
     {
         return new HttpProfiler(new WorkProfiler($this->build($app, $this->sequential(...))));
     }
 
-    public function forSwoole(Application $app): ?ContinuousProfiler
+    public function forContinuousWorker(Application $app): ?ContinuousProfiler
     {
         return $this->build(
             $app,

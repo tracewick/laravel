@@ -4,23 +4,33 @@ declare(strict_types=1);
 
 namespace Tracewick\Bridge\Laravel\Octane;
 
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Http\Request;
 use Laravel\Octane\Contracts\Client;
+use Laravel\Octane\Events\OperationReleased;
 use Laravel\Octane\Events\RequestReceived;
 use Laravel\Octane\Events\RequestTerminated;
 use Laravel\Octane\Events\WorkerStarting;
+use Laravel\Octane\Events\WorkerStopping;
 use Laravel\Octane\RoadRunner\RoadRunnerClient;
 use Tracewick\Bridge\Laravel\HttpProfiler;
 
-/** One HTTP profiler shared by the sequential worker and its request sandboxes. */
-final class RoadRunnerProfiler
+/** Attaches per-request HTTP profiling to a sequential Octane worker. */
+final class RoadRunnerSubscriber
 {
     private ?HttpProfiler $profiler = null;
-    private ?Request $active = null;
 
     /** @param \Closure(Application): HttpProfiler $create */
     public function __construct(private readonly \Closure $create) {}
+
+    public function subscribe(Dispatcher $events): void
+    {
+        $events->listen(WorkerStarting::class, $this->starting(...));
+        $events->listen(RequestReceived::class, $this->received(...));
+        $events->listen(RequestTerminated::class, $this->terminated(...));
+        $events->listen(OperationReleased::class, $this->release(...));
+        $events->listen(WorkerStopping::class, $this->stopping(...));
+    }
 
     public function starting(WorkerStarting $event): void
     {
@@ -31,24 +41,17 @@ final class RoadRunnerProfiler
 
     public function received(RequestReceived $event): void
     {
-        if ($this->active === null && $this->profiler?->begin($event->request) === true) {
-            $this->active = $event->request;
-        }
+        $this->profiler?->begin($event->request);
     }
 
     public function terminated(RequestTerminated $event): void
     {
-        if ($this->active === $event->request) {
-            $this->release();
-        }
+        $this->profiler?->finish($event->request);
     }
 
     public function release(): void
     {
-        if ($this->active !== null) {
-            $this->profiler?->finish($this->active);
-            $this->active = null;
-        }
+        $this->profiler?->finishActiveRequest();
     }
 
     public function stopping(): void

@@ -37,6 +37,11 @@ final class WorkProfiler
         return $this->owner === $owner;
     }
 
+    public function owner(): ?object
+    {
+        return $this->owner;
+    }
+
     public function label(object $owner, string $key, string $value): void
     {
         if ($this->owns($owner)) {

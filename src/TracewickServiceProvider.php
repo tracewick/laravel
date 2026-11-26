@@ -16,12 +16,8 @@ use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Env;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Octane\Events\OperationReleased;
-use Laravel\Octane\Events\RequestReceived;
-use Laravel\Octane\Events\RequestTerminated;
-use Laravel\Octane\Events\WorkerStarting;
-use Laravel\Octane\Events\WorkerStopping;
-use Tracewick\Bridge\Laravel\Octane\RoadRunnerProfiler;
-use Tracewick\Bridge\Laravel\Octane\SwooleProfiler;
+use Tracewick\Bridge\Laravel\Octane\RoadRunnerSubscriber;
+use Tracewick\Bridge\Laravel\Octane\SwooleWorkerSubscriber;
 
 final class TracewickServiceProvider extends ServiceProvider
 {
@@ -73,21 +69,15 @@ final class TracewickServiceProvider extends ServiceProvider
             return;
         }
 
-        $mode = $config->get('tracewick.octane_mode');
         $factory = new ProfilerFactory();
+        $subscriber = match ($config->get('tracewick.octane_mode')) {
+            'roadrunner' => new RoadRunnerSubscriber($factory->forHttpWorker(...)),
+            'swoole' => new SwooleWorkerSubscriber($factory->forContinuousWorker(...)),
+            default => null,
+        };
 
-        if ($mode === 'roadrunner') {
-            $profiler = new RoadRunnerProfiler($factory->forRoadRunner(...));
-            $events->listen(WorkerStarting::class, $profiler->starting(...));
-            $events->listen(RequestReceived::class, $profiler->received(...));
-            $events->listen(RequestTerminated::class, $profiler->terminated(...));
-            $events->listen(OperationReleased::class, $profiler->release(...));
-            $events->listen(WorkerStopping::class, $profiler->stopping(...));
-        } elseif ($mode === 'swoole') {
-            $profiler = new SwooleProfiler($factory->forSwoole(...));
-            $events->listen(WorkerStarting::class, $profiler->starting(...));
-            $events->listen(OperationReleased::class, $profiler->release(...));
-            $events->listen(WorkerStopping::class, $profiler->stopping(...));
+        if ($subscriber !== null) {
+            $events->subscribe($subscriber);
         }
     }
 }
