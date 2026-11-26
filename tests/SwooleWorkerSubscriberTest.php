@@ -35,6 +35,7 @@ final class SwooleWorkerSubscriberTest extends TestCase
         $stopping = new WorkerStopping($app);
         $calls = [];
         $labels = [];
+        $flushTimes = [];
         $now = 2_000_000_000;
         $clock = $this->createStub(Clock::class);
         $clock->method('nowNs')->willReturnCallback(static function () use (&$now): int {
@@ -46,7 +47,9 @@ final class SwooleWorkerSubscriberTest extends TestCase
             $calls[] = 'stop';
         });
         $sampler->method('isRunning')->willReturn(true);
-        $sampler->expects(self::exactly(4))->method('flush')->willReturnCallback(static function () use (&$now): SampleBatch {
+        $sampler->expects(self::exactly(5))->method('flush')->willReturnCallback(static function () use (&$now, &$flushTimes): SampleBatch {
+            $flushTimes[] = $now;
+
             return new SampleBatch(EventType::Wall, 100, $now - 200, $now, [
                 new Sample([new Frame('worker')], 1, $now - 100),
             ]);
@@ -78,6 +81,8 @@ final class SwooleWorkerSubscriberTest extends TestCase
         $events->dispatch($starting);
         $app->instance(\Swoole\Http\Server::class, (object) ['taskworker' => true]);
         $events->dispatch($starting);
+        $app->instance(\Swoole\Http\Server::class, (object) []);
+        $events->dispatch($starting);
         $events->dispatch($released);
         self::assertSame([], $calls);
         $app->instance(\Swoole\Http\Server::class, (object) ['taskworker' => false]);
@@ -88,6 +93,12 @@ final class SwooleWorkerSubscriberTest extends TestCase
         $events->dispatch($released);
         $events->dispatch($released);
         self::assertSame([], $labels);
+        $now = 2_999_999_999;
+        $events->dispatch($released);
+        self::assertNotContains($now, $flushTimes);
+        $now = 3_000_000_000;
+        $events->dispatch($released);
+        self::assertContains($now, $flushTimes);
         $now = 18_000_000_000;
         $events->dispatch($released);
         self::assertSame([['environment' => 'testing']], $labels);

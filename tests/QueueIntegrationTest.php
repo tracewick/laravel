@@ -21,6 +21,7 @@ use Illuminate\Queue\Events\JobAttempted;
 use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Jobs\SyncJob;
 use Illuminate\Queue\Worker;
 use Illuminate\Queue\WorkerOptions;
 use Orchestra\Testbench\TestCase;
@@ -157,6 +158,36 @@ final class QueueIntegrationTest extends TestCase
         $this->dispatchAttempt($job);
 
         self::assertSame(['unknown'], $this->jobLabels($profiles));
+    }
+
+    public function testUnloadedJobMetadataNeverTriggersAutoload(): void
+    {
+        $class = 'Example\\UnloadedJob';
+        $profiles = $this->recordProfiles();
+        $job = $this->createStub(Job::class);
+        $job->method('payload')->willReturn(['job' => $class . '@fire']);
+        $autoloadRequests = [];
+        $loader = static function (string $class) use (&$autoloadRequests): void {
+            $autoloadRequests[] = $class;
+        };
+
+        spl_autoload_register($loader, prepend: true);
+        try {
+            $this->dispatchAttempt($job);
+        } finally {
+            spl_autoload_unregister($loader);
+        }
+
+        self::assertNotContains($class, $autoloadRequests);
+        self::assertSame(['unknown'], $this->jobLabels($profiles));
+    }
+
+    public function testStandaloneSyncJobDoesNotClaimAProfile(): void
+    {
+        $profiles = $this->recordProfiles();
+        $this->dispatchAttempt($this->createStub(SyncJob::class));
+
+        self::assertCount(0, $profiles);
     }
 
     /** @return iterable<string, array{array<string, mixed>}> */

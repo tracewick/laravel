@@ -51,9 +51,28 @@ final class HttpLifecycleTest extends TestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertCount(0, $profiles);
 
-        $other = Request::create('/other');
+        $other = new class extends Request {
+            public int $methodReads = 0;
+
+            public function getRealMethod(): string
+            {
+                ++$this->methodReads;
+
+                return parent::getRealMethod();
+            }
+        };
+        $routeReads = 0;
+        $other->setRouteResolver(static function () use (&$routeReads): null {
+            ++$routeReads;
+
+            return null;
+        });
+        $profiler = $this->app->make(HttpProfiler::class);
+        self::assertFalse($profiler->begin($other));
         $this->app->make(ProfileRequest::class)->terminate($other);
         self::assertCount(0, $profiles);
+        self::assertSame(0, $other->methodReads);
+        self::assertSame(0, $routeReads);
 
         $kernel->terminate($request, $response);
         $kernel->terminate($request, $response);
@@ -61,6 +80,16 @@ final class HttpLifecycleTest extends TestCase
         $profile = $profiles[0];
         self::assertInstanceOf(Profile::class, $profile);
         self::assertEquals(['route' => 'items.show', 'method' => 'GET'], $profile->labels->toArray());
+    }
+
+    public function testInactiveWorkCannotAcquireAnOwner(): void
+    {
+        $work = new WorkProfiler(null);
+        $owner = new \stdClass();
+
+        self::assertFalse($work->begin($owner, ['route' => 'orders.show']));
+        self::assertFalse($work->owns($owner));
+        self::assertNull($work->owner());
     }
 
     public function testSequentialRequestsKeepBoundedRouteAndMethodLabels(): void
