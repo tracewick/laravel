@@ -7,6 +7,10 @@ composer install
 composer ci
 ~~~
 
+CI runs mutation tests with Infection 0.35.8 and PCOV on PHP 8.5. With both tools
+installed, run `composer infection`. The overall and covered mutation scores must
+each reach 80%.
+
 The test suite runs without Excimer. Laravel lifecycle tests use a test sampler and sink,
 and the queue tests run Laravel's database driver against an in-memory SQLite database.
 Native Excimer tests belong in [Tracewick core](https://github.com/tracewick/tracewick).

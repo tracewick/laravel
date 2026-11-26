@@ -31,6 +31,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Tracewick\Bridge\Laravel\HttpProfiler;
 use Tracewick\Bridge\Laravel\Octane\RoadRunnerSubscriber;
 use Tracewick\Bridge\Laravel\ProfileRequest;
+use Tracewick\Bridge\Laravel\ProfilerFactory;
 use Tracewick\Bridge\Laravel\TracewickServiceProvider;
 use Tracewick\Bridge\Laravel\WorkProfiler;
 use Tracewick\Profile\Profile;
@@ -82,6 +83,7 @@ final class OctaneIntegrationTest extends TestCase
 
             if ($mode === 'roadrunner' && $enabled) {
                 $this->app->instance(Client::class, $this->createStub(RoadRunnerClient::class));
+                self::assertNotNull((new ProfilerFactory())->forHttpWorker($this->app)->diagnostics());
             }
             if ($mode === 'swoole') {
                 $this->app->instance(\Swoole\Http\Server::class, (object) ['taskworker' => false]);
@@ -113,8 +115,8 @@ final class OctaneIntegrationTest extends TestCase
         self::assertInstanceOf(Application::class, $this->app);
         $profiles = [];
         $sampler = $this->createMock(Sampler::class);
-        $sampler->expects(self::exactly(3))->method('start');
-        $sampler->expects(self::exactly(3))->method('stop');
+        $sampler->expects(self::exactly(4))->method('start');
+        $sampler->expects(self::exactly(4))->method('stop');
         $sampler->method('isRunning')->willReturn(true);
         $sampler->method('flush')->willReturn(new SampleBatch(
             EventType::Wall,
@@ -139,6 +141,12 @@ final class OctaneIntegrationTest extends TestCase
         $app = $this->app;
         $events = $app->make(Dispatcher::class);
         $events->subscribe($subscriber);
+        $unused = Request::create('/before-worker-start');
+        $sandbox = clone $app;
+        $events->dispatch(new RequestReceived($app, $sandbox, $unused));
+        $events->dispatch(new RequestTerminated($app, $sandbox, $unused, new Response()));
+        $events->dispatch(new OperationReleased($app));
+
         $events->listen(RequestReceived::class, static function (RequestReceived $event) use ($app, $subscriber): void {
             self::assertSame($app, $event->app);
             self::assertNotSame($app, $event->sandbox);
@@ -174,11 +182,18 @@ final class OctaneIntegrationTest extends TestCase
         self::assertSame(0, $creations);
         $app->instance(Client::class, $client);
         $worker->boot();
+        $events->dispatch(new WorkerStarting($app));
         foreach (['/one' => 'GET', '/error' => 'POST', '/two' => 'GET'] as $path => $method) {
+            $before = count($profiles);
             $worker->handle(Request::create($path, $method), new RequestContext());
+            self::assertCount($before + ($path === '/error' ? 0 : 1), $profiles);
             $worker->operationReleased();
+            self::assertCount($before + 1, $profiles);
         }
+        $events->dispatch(new RequestReceived($app, $sandbox, Request::create('/pending-at-stop')));
+        self::assertCount(3, $profiles);
         $worker->terminate();
+        self::assertCount(4, $profiles);
         self::assertSame(1, $creations);
         $worker->boot();
         $worker->terminate();
@@ -188,6 +203,7 @@ final class OctaneIntegrationTest extends TestCase
             ['method' => 'GET', 'route' => 'one'],
             ['method' => 'POST', 'route' => 'error'],
             ['method' => 'GET', 'route' => 'two'],
+            ['method' => 'GET', 'route' => 'unmatched'],
         ], $profiles);
     }
 }
