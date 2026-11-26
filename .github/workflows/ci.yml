@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-check:
+    name: Release packaging (unsigned)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # No publishing or OIDC permissions; fixtures are explicitly unsigned.
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Build and verify the actual exported package
+        run: |
+          python3 scripts/release-package.py --output build/release --version 0.0.0-snapshot
+          (cd build/release && sha256sum --check checksums.txt)
+          python3 -m unittest discover -s scripts -p 'test_*.py' -v
+      - name: Validate the package SBOM against CycloneDX 1.6
+        run: |
+          python3 -m pip install 'jsonschema==4.26.0'
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import urllib.request
+          from jsonschema import Draft7Validator
+          from referencing import Registry, Resource
+          registry = Registry()
+          base = 'https://raw.githubusercontent.com/CycloneDX/specification/55343ba19dee1785acf1ce9191540d5fd7b590db/schema/'
+          for name in ('bom-1.6.schema.json', 'spdx.schema.json', 'jsf-0.82.schema.json'):
+              with urllib.request.urlopen(base + name, timeout=30) as stream:
+                  document = json.load(stream)
+              resource = Resource.from_contents(document)
+              for prefix in ('http://cyclonedx.org/schema/', 'https://cyclonedx.org/schema/'):
+                  registry = registry.with_resource(prefix + name, resource)
+              if name == 'bom-1.6.schema.json':
+                  schema = document
+          bom = json.loads(pathlib.Path('build/release/tracewick-laravel-0.0.0-snapshot.sbom.json').read_text())
+          Draft7Validator(schema, registry=registry).validate(bom)
+          PY
+
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: ':excimer, pdo_sqlite'
+          coverage: pcov
+          tools: composer:v2
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - run: composer ci
+      - run: vendor/bin/phpunit --coverage-clover build/coverage/clover.xml
+      - uses: codecov/codecov-action@v7
+        with:
+          files: build/coverage/clover.xml
+          use_oidc: true
+          fail_ci_if_error: true
+
+  compatibility:
+    name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4', '8.5']
+        laravel: ['12', '13']
+        exclude:
+          - php: '8.2'
+            laravel: '13'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: ':excimer, pdo_sqlite'
+          coverage: none
+          tools: composer:v2
+      - run: composer require --no-interaction --no-progress --prefer-dist "laravel/framework:^${{ matrix.laravel }}.0"
+      - run: composer test

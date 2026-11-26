@@ -1,0 +1,20 @@
+* text=auto eol=lf
+*.php diff=php
+
+# Exclude development and release tooling from Composer distributions.
+/.gitattributes                    export-ignore
+/.github/                          export-ignore
+/.gitignore                        export-ignore
+/.php-cs-fixer.dist.php             export-ignore
+/.release-please-manifest.json     export-ignore
+/AGENTS.md                         export-ignore
+/CHANGELOG.md                      export-ignore
+/CONTRIBUTING.md                   export-ignore
+/SECURITY.md                       export-ignore
+/docs/                             export-ignore
+/phpstan.neon.dist                 export-ignore
+/phpunit.xml.dist                  export-ignore
+/rector.php                        export-ignore
+/release-please-config.json        export-ignore
+/scripts/                          export-ignore
+/tests/                            export-ignore
